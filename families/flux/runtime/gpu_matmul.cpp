@@ -10,6 +10,8 @@
 #include <cstdlib>
 #include <cublas_v2.h>
 #include <cuda_runtime_api.h>
+#include <stdexcept>
+#include <string>
 
 namespace trtmc {
 
@@ -24,12 +26,16 @@ struct DevBuf {
 };
 DevBuf g_dA, g_dB, g_dC;
 
-void ensure_buf(DevBuf& buf, size_t need) {
+void ensure_buf(DevBuf& buf, size_t need, const char* what) {
     if (buf.bytes >= need)
         return;
+    float* replacement = nullptr;
+    if (cudaMalloc(reinterpret_cast<void**>(&replacement), need) != cudaSuccess)
+        throw std::runtime_error(std::string("flux gpu matmul: unable to allocate ") + what +
+                                 " buffer");
     if (buf.ptr)
         cudaFree(buf.ptr);
-    cudaMalloc(reinterpret_cast<void**>(&buf.ptr), need);
+    buf.ptr = replacement;
     buf.bytes = need;
 }
 
@@ -70,9 +76,9 @@ void flux_gpu_matmul_bias(const float* A, const float* B, const float* bias, flo
     const size_t sB = size_t(K) * N * sizeof(float);
     const size_t sC = size_t(M) * N * sizeof(float);
 
-    ensure_buf(g_dA, sA);
-    ensure_buf(g_dB, sB);
-    ensure_buf(g_dC, sC);
+    ensure_buf(g_dA, sA, "A");
+    ensure_buf(g_dB, sB, "B");
+    ensure_buf(g_dC, sC, "C");
 
     cudaMemcpyAsync(g_dA.ptr, A, sA, cudaMemcpyHostToDevice, g_stream);
     cudaMemcpyAsync(g_dB.ptr, B, sB, cudaMemcpyHostToDevice, g_stream);

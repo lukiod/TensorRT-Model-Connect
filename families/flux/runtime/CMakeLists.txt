@@ -58,4 +58,20 @@ if(TRTMC_BUILD_TESTS)
     target_compile_options(${test_name} PRIVATE -Wall -Wextra -Wpedantic)
     add_test(NAME ${test_name} COMMAND ${test_name})
   endforeach()
+
+  # Compiles the matmul workspace against CPU CUDA/cuBLAS stubs defined in the
+  # test, so an allocation failure can be injected without a GPU or cudart.
+  add_executable(test_flux_matmul_alloc
+    ${PROJECT_SOURCE_DIR}/families/flux/tests/cpp/test_flux_matmul_alloc.cpp
+    gpu_matmul.cpp
+  )
+  target_include_directories(test_flux_matmul_alloc PRIVATE
+    ${PROJECT_SOURCE_DIR}
+    ${PROJECT_SOURCE_DIR}/core/runtime/include
+  )
+  target_include_directories(test_flux_matmul_alloc SYSTEM PRIVATE
+    ${TRTMC_CUDA_INCLUDE_DIR}
+  )
+  target_compile_options(test_flux_matmul_alloc PRIVATE -Wall -Wextra -Wpedantic)
+  add_test(NAME flux_matmul_alloc COMMAND test_flux_matmul_alloc)
 endif()
